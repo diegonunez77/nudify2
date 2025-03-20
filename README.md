@@ -76,53 +76,51 @@ nudify2/
 │   │   └── depend-resolver.py # Dependency resolver
 │   └── frontend/
 │       └── index.html       # Frontend interface
-├── models/                  # Pre-trained models
-├── GroundingDINO/           # GroundingDINO repository
+├── output/                  # Output directory for processed images
 ├── docker-compose.yml       # Docker Compose configuration
-├── Dockerfile               # Docker configuration
+├── Dockerfile               # Docker configuration (clones repo automatically)
 ├── setup_directories.sh     # Host setup script for remote deployment
 ├── requirements.txt         # Python dependencies
 └── pyproject.toml           # Poetry configuration
 ```
 
+In this Git-based approach, the Dockerfile automatically clones the repository during container build, ensuring all code is consistent with the GitHub version.
+
 ## Remote Deployment
 
 To deploy Nudify2 on a remote machine, follow these steps:
 
-1. Clone the repository on the remote machine:
+1. Download the docker-compose.yml file:
    ```bash
-   git clone https://github.com/yourusername/nudify2.git
-   cd nudify2
+   curl -O https://raw.githubusercontent.com/diegonunez77/nudify2/main/docker-compose.yml
    ```
 
-2. Run the setup script to prepare the host environment:
-   ```bash
-   chmod +x setup_directories.sh
-   ./setup_directories.sh
-   ```
-   This script will:
-   - Create necessary directories for Docker volumes
-   - Set appropriate permissions
-   - Verify Docker and Docker Compose are installed
-
-3. Build and start the application:
+2. Build and start the application:
    ```bash
    docker-compose up --build
    ```
 
-4. Access the application at `http://remote-machine-ip:5000`
+3. Access the application at `http://remote-machine-ip:5000`
+
+> **Note**: Docker will automatically create the output directory. Make sure Docker and Docker Compose are installed on your system.
+
+### Git-Based Reproducibility
+
+This approach uses Git for version management and reproducibility. The Dockerfile will automatically:
+- Clone the latest version of the repository from GitHub
+- Set up all required dependencies
+- Download necessary AI models
 
 ### Volume Configuration
 
-The Docker Compose configuration uses two volume mounts for production:
+The Docker Compose configuration uses one volume mount for production:
 
-- `./models:/app/models`: Persists AI models between container rebuilds
-- `./app/output:/app/output`: Stores processed images
+- `./output:/app/output`: Stores processed images
 
-This optimized volume setup ensures:
-- Models are downloaded only once and reused across container rebuilds
+All code and models are managed through Git, ensuring consistent deployment across environments. This setup ensures:
+- The application code is always up-to-date with the latest GitHub version
+- Models are downloaded during container build for better reproducibility
 - Output images are saved persistently on the host machine
-- The application code is contained within the Docker image for better reproducibility
 
 ### Adding New Features
 

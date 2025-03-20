@@ -89,8 +89,13 @@ RUN curl -L -o /app/models/lustifySDXLNSFW_v20-inpainting.safetensors \
 RUN mkdir -p /app/models /app/output && \
     chmod 777 /app/output
 
-# Copy your application code
-COPY app/ /app/app/
+# Clone the GitHub repository for reproducibility
+RUN apt-get update && apt-get install -y git && \
+    git clone https://github.com/diegonunez77/nudify2.git /app/repo && \
+    cp -r /app/repo/app /app/ && \
+    rm -rf /app/repo/.git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set environment variables
 ENV FLASK_APP=/app/app/backend/app.py

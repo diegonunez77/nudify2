@@ -3,8 +3,8 @@ services:
     build: .
     container_name: nudify2_production
     volumes:
-      - ./models:/app/models  # Persist models between container rebuilds
-      - ./app/output:/app/output  # Persist output images
+      - ./output:/app/output  # Only persist output images
+    # Docker will create the output directory if it doesn't exist
     working_dir: /app
     command: ["/bin/bash", "-c", "source activate ai_env && flask run --host=0.0.0.0"]
     ports:
