@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "nudify2"
+version = "0.1.0"
+description = ""
+authors = ["diegonunez77 <diegonunezbiz99@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.10"
+torch = "^2.0.0"  # PyTorch for model computation and GPU support
+transformers = "^4.30.0"  # For GroundingDINO and other HuggingFace models
+diffusers = "^0.18.0"  # For Stable Diffusion and inpainting
+segment-anything = "^0.1.0"  # SAM model library
+Pillow = "^8.0"  # For image processing (PIL)
+requests = "^2.28.0"  # To handle image downloading via URLs
+numpy = "^1.21"  # For numerical operations
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

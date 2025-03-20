@@ -1,0 +1,21 @@
+services:
+  nudify2:
+    build: .
+    container_name: nudify2_production
+    volumes:
+      - ./models:/app/models  # Persist models between container rebuilds
+      - ./app/output:/app/output  # Persist output images
+    working_dir: /app
+    command: ["/bin/bash", "-c", "source activate ai_env && flask run --host=0.0.0.0"]
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_APP=/app/app/backend/app.py
+      - FLASK_ENV=production  # Changed to production
+      - FLASK_DEBUG=0  # Disabled debug mode
+    dns:
+      - 8.8.8.8
+    restart: unless-stopped  # Added for better production reliability
+    stdin_open: true
+    tty: true
