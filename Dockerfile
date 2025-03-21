@@ -39,6 +39,7 @@ RUN conda install -y -c pytorch -c nvidia \
 # Install other dependencies with conda where possible
 RUN conda install -y -c conda-forge \
     flask=2.3.2 \
+    flask-cors=5.0.1 \
     numpy=1.24.3 \
     pillow=10.0.0 \
     requests=2.31.0 \
@@ -97,6 +98,14 @@ RUN apt-get update && apt-get install -y git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Copy local files to override the ones from GitHub (for development)
+COPY ./app /app/app/
+
+# Make sure the frontend directory exists and has proper permissions
+RUN ls -la /app/app && \
+    ls -la /app/app/frontend || echo "Frontend directory not found" && \
+    chmod -R 755 /app/app
+
 # Set environment variables
 ENV FLASK_APP=/app/app/backend/app.py
 ENV FLASK_ENV=development
@@ -111,4 +120,4 @@ RUN conda run -n ai_env pip freeze > /app/pip-requirements.txt
 
 # Ensure Conda environment is activated properly before running Flask
 ENTRYPOINT ["/bin/bash", "-c"]
-CMD ["source activate ai_env && flask run --host=0.0.0.0"]
+CMD ["conda run -n ai_env python /app/app/backend/app.py"]

@@ -139,7 +139,7 @@ def main(image_url, prompt, output_path):
     logger.info(f"Inpainted image saved to: {output_path}")
 
 # Create a Flask API
-from flask import Flask, request, jsonify, send_file, abort, make_response
+from flask import Flask, request, jsonify, send_file, abort, make_response, send_from_directory
 from flask_cors import CORS
 import logging
 import os
@@ -155,7 +155,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+# Define the path to the frontend directory
+FRONTEND_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'frontend')
+
+# Log frontend directory path for debugging
+logger.info(f"Frontend directory path: {FRONTEND_DIR}")
+logger.info(f"Frontend directory exists: {os.path.exists(FRONTEND_DIR)}")
+if os.path.exists(FRONTEND_DIR):
+    logger.info(f"Frontend directory contents: {os.listdir(FRONTEND_DIR)}")
+    index_path = os.path.join(FRONTEND_DIR, 'index.html')
+    logger.info(f"index.html exists: {os.path.exists(index_path)}")
+
+# Initialize Flask app with static folder pointing to frontend directory
+app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 CORS(app)  # Enable CORS for all routes
 
 # Configure base output directory
@@ -229,19 +241,133 @@ def process_image():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Upload a file endpoint (placeholder for future implementation)"""
+    """Process an uploaded image file"""
     logger.info("Received file upload request")
+    start_time = time.time()
     
-    # This is a placeholder for future file upload implementation
-    # Currently, the frontend uses image URLs instead of file uploads
-    return jsonify({
-        "error": "File upload not yet implemented",
-        "message": "Please use image URL instead"
-    }), 501
+    try:
+        # Check if file part is in the request
+        if 'file' not in request.files:
+            logger.error("No file part in the request")
+            return jsonify({"error": "No file part in the request"}), 400
+            
+        file = request.files['file']
+        prompt = request.form.get('prompt')
+        
+        # Check if file is selected
+        if file.filename == '':
+            logger.error("No file selected")
+            return jsonify({"error": "No file selected"}), 400
+            
+        # Check if prompt is provided
+        if not prompt:
+            logger.error("No prompt provided")
+            return jsonify({"error": "No prompt provided"}), 400
+            
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'webp', 'gif'}
+        if not file.filename.lower().endswith(tuple('.' + ext for ext in allowed_extensions)):
+            logger.error(f"Invalid file type. Allowed types: {', '.join(allowed_extensions)}")
+            return jsonify({"error": f"Invalid file type. Allowed types: {', '.join(allowed_extensions)}"}), 400
+            
+        # Create a secure filename and save the uploaded file
+        filename = secure_filename(file.filename)
+        timestamp = int(time.time())
+        unique_id = str(uuid.uuid4())[:8]
+        upload_filename = f"{timestamp}_{unique_id}_{filename}"
+        upload_path = os.path.join(UPLOAD_FOLDER, upload_filename)
+        file.save(upload_path)
+        
+        logger.info(f"File saved to {upload_path}")
+        
+        # Generate output path
+        output_filename = f"result_{timestamp}_{unique_id}.jpg"
+        output_path = os.path.join(OUTPUT_FOLDER, output_filename)
+        
+        # Process the image
+        try:
+            # Load the image
+            image = Image.open(upload_path)
+            
+            # Detect objects
+            boxes = detect_objects(image, prompt)
+            
+            if not boxes:
+                logger.warning("No object detected in the uploaded image.")
+                return jsonify({"error": "No suitable object detected in the image."}), 400
+            
+            # Take the first detected bounding box
+            bbox = boxes[0]
+            
+            # Segment the object using FastSAM
+            annotations = segment_image(image, bbox)
+            
+            # Get the mask from annotations
+            if isinstance(annotations, list) and len(annotations) > 0:
+                mask = annotations[0]
+            else:
+                mask = annotations
+            
+            # Inpaint the image with Stable Diffusion
+            inpainted_image = inpaint_image(image, mask, prompt)
+            
+            # Save the inpainted image
+            inpainted_image.save(output_path)
+            logger.info(f"Processed image saved to: {output_path}")
+            
+            # Return the processed image
+            processing_time = time.time() - start_time
+            logger.info(f"Image processing completed in {processing_time:.2f} seconds")
+            
+            return send_file(output_path, mimetype='image/jpeg')
+            
+        except Exception as e:
+            logger.error(f"Error processing uploaded image: {str(e)}")
+            return jsonify({
+                "error": "Failed to process the uploaded image",
+                "message": str(e)
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error handling file upload: {str(e)}")
+        return jsonify({
+            "error": "Failed to handle file upload",
+            "message": str(e)
+        }), 500
+
+# Route to serve the frontend
+@app.route('/')
+def index():
+    """Serve the index.html file"""
+    logger.info(f"Serving index.html from {FRONTEND_DIR}")
+    try:
+        return send_from_directory(FRONTEND_DIR, 'index.html')
+    except Exception as e:
+        logger.error(f"Error serving index.html: {str(e)}")
+        return jsonify({
+            "error": "Failed to serve index.html",
+            "message": str(e),
+            "frontend_dir": FRONTEND_DIR,
+            "frontend_dir_exists": os.path.exists(FRONTEND_DIR),
+            "index_exists": os.path.exists(os.path.join(FRONTEND_DIR, 'index.html')) if os.path.exists(FRONTEND_DIR) else False
+        }), 500
+
+# Route to serve any static files from the frontend directory
+@app.route('/<path:path>')
+def serve_static(path):
+    """Serve static files from the frontend directory"""
+    logger.info(f"Request for static file: {path}")
+    full_path = os.path.join(FRONTEND_DIR, path)
+    logger.info(f"Full path: {full_path}, exists: {os.path.exists(full_path)}")
+    
+    if os.path.exists(full_path):
+        logger.info(f"Serving static file: {path}")
+        return send_from_directory(FRONTEND_DIR, path)
+    else:
+        logger.warning(f"Static file not found: {path}, falling back to index.html")
+        return index()
 
 # Example usage for direct Python execution
 if __name__ == "__main__":
-    image_url = "https://m.media-amazon.com/images/I/81-tTAZRQdL.jpg"
-    prompt = "female breasts, bikini, bikini top, bikini bottom"
-    output_path = os.path.join(BASE_OUTPUT_DIR, 'inpainted_image.jpg')
-    main(image_url, prompt, output_path)
+    # For development, enable debug mode
+    app.run(host='0.0.0.0', port=5000, debug=True)
