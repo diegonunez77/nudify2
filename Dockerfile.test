@@ -1,0 +1,91 @@
+# Use a Conda-based PyTorch image for better dependency resolution
+FROM continuumio/miniconda3:latest
+
+# Set working directory
+WORKDIR /app
+
+# Set non-interactive frontend
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+    git \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgl1-mesa-glx \
+    tzdata \
+    build-essential \
+    curl \
+    wget && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create a Conda environment
+RUN conda create -n ai_env python=3.10 -y
+
+# Set up shell to use the Conda environment
+SHELL ["conda", "run", "-n", "ai_env", "/bin/bash", "-c"]
+
+# Install PyTorch with conda (lighter version without CUDA for testing)
+RUN conda install -y -c pytorch \
+    pytorch=2.1.0 \
+    torchvision \
+    torchaudio \
+    cpuonly && \
+    conda clean -ya
+
+# Install other dependencies with conda where possible
+RUN conda install -y -c conda-forge \
+    flask=2.3.2 \
+    flask-cors=5.0.1 \
+    numpy=1.24.3 \
+    pillow=10.0.0 \
+    requests=2.31.0 \
+    pip && \
+    conda clean -ya
+
+# Install minimal dependencies for testing
+RUN conda run -n ai_env pip install --no-cache-dir \
+    "transformers>=4.33.0,<5.0.0" \
+    "diffusers>=0.24.0,<0.25.0" \
+    "accelerate>=0.23.0,<0.24.0" \
+    "huggingface_hub>=0.17.3" \
+    "tokenizers>=0.13.3" \
+    "safetensors>=0.3.1" \
+    "ultralytics"
+
+# Install authentication dependencies
+RUN conda run -n ai_env pip install --no-cache-dir \
+    flask-sqlalchemy \
+    flask-session \
+    google-auth \
+    google-auth-oauthlib \
+    google-auth-httplib2
+
+# Create directories
+RUN mkdir -p /app/models /app/output /app/data
+
+# Create empty model files to satisfy imports (will be skipped in test mode)
+RUN touch /app/models/FastSAM-s.pt && \
+    touch /app/models/yolov5n.pt && \
+    touch /app/models/lustifySDXLNSFW_v20-inpainting.safetensors
+
+# Make sure the output directory has proper permissions
+RUN chmod 777 /app/output /app/data
+
+# Set environment variables
+ENV FLASK_APP=/app/app/backend/app.py
+ENV FLASK_ENV=development
+ENV FLASK_DEBUG=1
+ENV SKIP_MODEL_LOADING=true
+
+# Expose the Flask port
+EXPOSE 5000
+
+# Generate a lockfile for reproducibility
+RUN conda env export > /app/environment.yml
+RUN conda run -n ai_env pip freeze > /app/pip-requirements.txt
+
+# No ENTRYPOINT or CMD here - we'll use the command in docker-compose.test.yml

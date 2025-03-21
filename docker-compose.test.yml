@@ -1,0 +1,27 @@
+services:
+  nudify2:
+    # Build from local directory instead of using the image from Docker Hub
+    build:
+      context: .
+      dockerfile: Dockerfile.test  # We'll create this file for local testing
+    container_name: nudify2-test
+    ports:
+      - "5000:5000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - FLASK_APP=/app/app/backend/app.py
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - SECRET_KEY=your_secret_key_for_testing
+      - GOOGLE_CLIENT_ID=your_google_client_id
+      - DATABASE_URL=sqlite:///app/data/nudify2.db
+      - SKIP_MODEL_LOADING=true
+    volumes:
+      # Mount the local app directory to override the GitHub clone
+      - ./app:/app/app
+      - ./output:/app/output
+      - ./data:/app/data
+    command: >
+      bash -c "cd /app && PYTHONPATH=/app conda run -n ai_env python -m flask --app app/backend/app run --host=0.0.0.0 --port=5000 --debug"
+    stdin_open: true
+    tty: true
