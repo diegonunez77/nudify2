@@ -7,6 +7,8 @@ from ultralytics import YOLO
 from PIL import Image
 import requests
 from io import BytesIO
+import secrets
+from datetime import datetime, timedelta
 
 # Configure logging
 import logging
@@ -170,6 +172,28 @@ if os.path.exists(FRONTEND_DIR):
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
 CORS(app)  # Enable CORS for all routes
 
+# Configure Flask app
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', secrets.token_hex(16))
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=7)  # Session lasts for 7 days
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:////app/data/nudify2.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize database
+from .models import db, User, ImageGeneration
+db.init_app(app)
+
+# Create database tables if they don't exist
+with app.app_context():
+    # Create database directory if it doesn't exist
+    db_dir = os.path.dirname(app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', ''))
+    os.makedirs(db_dir, exist_ok=True)
+    db.create_all()
+
+# Register authentication blueprint
+from .auth import auth_bp, login_required, check_credits
+app.register_blueprint(auth_bp)
+
 # Configure base output directory
 BASE_OUTPUT_DIR = '/app/output'
 
@@ -187,10 +211,15 @@ def health_check():
     return jsonify({"status": "healthy", "message": "Service is running"})
 
 @app.route('/process-image', methods=['POST'])
+@login_required
+@check_credits(credits_required=1.0)
 def process_image():
     """Process an image using the AI pipeline"""
     logger.info("Received image processing request")
     start_time = time.time()
+    
+    # Get the current user
+    user_id = session.get('user_id')
     
     try:
         data = request.json
@@ -229,6 +258,26 @@ def process_image():
         processing_time = time.time() - start_time
         logger.info(f"Image successfully processed in {processing_time:.2f} seconds")
         
+        # Record the image generation in the database
+        if user_id:
+            user = User.query.get(user_id)
+            if user:
+                # Deduct credits
+                credits_used = 1.0
+                user.credit_balance -= credits_used
+                
+                # Create image generation record
+                image_gen = ImageGeneration(
+                    user_id=user_id,
+                    original_image_url=image_url,
+                    result_image_path=output_path,
+                    prompt=prompt,
+                    credits_used=credits_used
+                )
+                db.session.add(image_gen)
+                db.session.commit()
+                logger.info(f"Deducted {credits_used} credits from user {user_id}. New balance: {user.credit_balance}")
+        
         # Return the processed image
         return send_file(output_path, mimetype='image/jpeg')
     
@@ -240,10 +289,15 @@ def process_image():
         }), 500
 
 @app.route('/upload', methods=['POST'])
+@login_required
+@check_credits(credits_required=1.0)
 def upload_file():
     """Process an uploaded image file"""
     logger.info("Received file upload request")
     start_time = time.time()
+    
+    # Get the current user
+    user_id = session.get('user_id')
     
     try:
         # Check if file part is in the request
@@ -315,6 +369,26 @@ def upload_file():
             inpainted_image.save(output_path)
             logger.info(f"Processed image saved to: {output_path}")
             
+            # Record the image generation in the database
+            if user_id:
+                user = User.query.get(user_id)
+                if user:
+                    # Deduct credits
+                    credits_used = 1.0
+                    user.credit_balance -= credits_used
+                    
+                    # Create image generation record
+                    image_gen = ImageGeneration(
+                        user_id=user_id,
+                        original_image_url=None,  # No URL for uploaded files
+                        result_image_path=output_path,
+                        prompt=prompt,
+                        credits_used=credits_used
+                    )
+                    db.session.add(image_gen)
+                    db.session.commit()
+                    logger.info(f"Deducted {credits_used} credits from user {user_id}. New balance: {user.credit_balance}")
+            
             # Return the processed image
             processing_time = time.time() - start_time
             logger.info(f"Image processing completed in {processing_time:.2f} seconds")
@@ -366,6 +440,39 @@ def serve_static(path):
     else:
         logger.warning(f"Static file not found: {path}, falling back to index.html")
         return index()
+
+# Add user history endpoint
+@app.route('/api/user/history', methods=['GET'])
+@login_required
+def get_user_history():
+    """Get the current user's image generation history"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+        
+    # Get user's image generations
+    generations = ImageGeneration.query.filter_by(user_id=user_id).order_by(ImageGeneration.created_at.desc()).all()
+    
+    return jsonify({
+        'history': [gen.to_dict() for gen in generations]
+    })
+
+# Add credits info endpoint
+@app.route('/api/user/credits', methods=['GET'])
+@login_required
+def get_user_credits():
+    """Get the current user's credit balance"""
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'Not authenticated'}), 401
+        
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+        
+    return jsonify({
+        'credit_balance': user.credit_balance
+    })
 
 # Example usage for direct Python execution
 if __name__ == "__main__":

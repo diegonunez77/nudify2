@@ -56,6 +56,14 @@ RUN conda run -n ai_env pip install --no-cache-dir \
     "safetensors>=0.3.1" \
     "ultralytics"
 
+# Install authentication dependencies
+RUN conda run -n ai_env pip install --no-cache-dir \
+    flask-sqlalchemy \
+    flask-session \
+    google-auth \
+    google-auth-oauthlib \
+    google-auth-httplib2
+
 # Install gdown inside Conda
 RUN conda run -n ai_env pip install --no-cache-dir gdown
 

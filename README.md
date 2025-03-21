@@ -9,15 +9,19 @@ Nudify2 is an AI-powered image transformation tool that uses advanced computer v
 - **User-Friendly Interface**: Modern, responsive web interface
 - **Image History**: Keep track of your transformation history
 - **Download Results**: Save transformed images to your device
+- **Google Sign-In**: Secure authentication using Google OAuth
+- **Credits System**: Track and manage user credits for image transformations
 
 ## Technology Stack
 
-- **Backend**: Python, Flask, PyTorch
+- **Backend**: Python, Flask, PyTorch, SQLAlchemy
 - **AI Models**: 
   - FastSAM for image segmentation
   - YOLO for object detection
   - Stable Diffusion for image inpainting
 - **Frontend**: HTML, CSS, JavaScript, Bootstrap
+- **Authentication**: Google OAuth 2.0
+- **Database**: SQLite (can be configured for other databases)
 - **Containerization**: Docker
 
 ## Getting Started
@@ -47,8 +51,37 @@ Nudify2 is an AI-powered image transformation tool that uses advanced computer v
 
    > **Note**: If the Lustify model download fails during the build process (due to expired URL or other issues), you'll need to manually download it and place it in the `/app/models/` directory with the filename `lustifySDXLNSFW_v20-inpainting.safetensors`.
 
-3. Access the web interface:
+3. Configure Google OAuth:
+   - Go to the [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project or select an existing one
+   - Navigate to "APIs & Services" > "Credentials"
+   - Click "Create Credentials" > "OAuth client ID"
+   - Set up the OAuth consent screen if prompted
+   - For Application type, select "Web application"
+   - Add authorized JavaScript origins: `http://localhost:5000` (and your production domain if applicable)
+   - Add authorized redirect URIs: `http://localhost:5000/auth/google/callback` (and your production domain equivalent)
+   - Copy the Client ID and update the `GOOGLE_CLIENT_ID` in your docker-compose.yml file
+
+4. Update environment variables in docker-compose.yml:
+   ```yaml
+   environment:
+     - SECRET_KEY=your_secure_random_string  # Change this to a secure random string
+     - GOOGLE_CLIENT_ID=your_google_client_id  # From Google Cloud Console
+   ```
+
+5. Access the web interface:
    Open your browser and navigate to `http://localhost:5000`
+
+## User Authentication and Credits
+
+Nudify2 implements a credit-based system for image transformations:
+
+- Users must sign in with their Google account to use the application
+- Each new user receives 10 free credits upon registration
+- Each image transformation costs 1 credit
+- The application prevents transformations if the user has insufficient credits
+
+This system is designed to be scalable for future payment integration, allowing users to purchase additional credits.
 
 ## Usage
 

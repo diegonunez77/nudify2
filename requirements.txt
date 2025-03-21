@@ -12,6 +12,13 @@ ultralytics
 segment-anything-fast
 flask-cors==4.0.0
 
+# Authentication and database dependencies
+flask-sqlalchemy==3.1.1
+flask-session==0.5.0
+google-auth==2.27.0
+google-auth-oauthlib==1.2.0
+google-auth-httplib2==0.2.0
+
 
 # Utility dependencies
 accelerate
