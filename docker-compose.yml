@@ -9,15 +9,18 @@ services:
     working_dir: /app
     command: ["/bin/bash", "-c", "source activate ai_env && flask run --host=0.0.0.0"]
     ports:
-      - "5000:5000"
+      - "5001:5000"
     environment:
       - PYTHONUNBUFFERED=1
       - FLASK_APP=/app/app/backend/app.py
-      - FLASK_ENV=production  # Changed to production
-      - FLASK_DEBUG=0  # Disabled debug mode
+      - FLASK_ENV=testing  # Changed to testing mode
+      - FLASK_DEBUG=1  # Enabled debug mode
       - SECRET_KEY=change_this_to_a_secure_random_string  # Used for session encryption
       - GOOGLE_CLIENT_ID=your_google_client_id  # Get this from Google Cloud Console
       - DATABASE_URL=sqlite:////app/data/nudify2.db  # SQLite database path
+      - ENABLE_FREE_TRIAL=true  # Enable free trial functionality
+      - FREE_TRIAL_LIMIT=1  # Number of free trials allowed per client
+      - SKIP_MODEL_LOADING=true  # Set to true for testing without AI models
     dns:
       - 8.8.8.8
     restart: unless-stopped  # Added for better production reliability

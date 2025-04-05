@@ -56,13 +56,15 @@ RUN conda run -n ai_env pip install --no-cache-dir \
     "safetensors>=0.3.1" \
     "ultralytics"
 
-# Install authentication dependencies
+# Install authentication and free trial dependencies
 RUN conda run -n ai_env pip install --no-cache-dir \
     flask-sqlalchemy \
     flask-session \
     google-auth \
     google-auth-oauthlib \
-    google-auth-httplib2
+    google-auth-httplib2 \
+    werkzeug \
+    uuid
 
 # Install gdown inside Conda
 RUN conda run -n ai_env pip install --no-cache-dir gdown
@@ -91,7 +93,7 @@ RUN gdown https://drive.google.com/uc?id=1m1sjY4ihXBU1fZXdQ-Xdj-mDltW-2Rqv -O /a
 # Download the Lustify model
 # Note: Using a staged approach with curl to handle redirects and large file downloads better
 RUN curl -L -o /app/models/lustifySDXLNSFW_v20-inpainting.safetensors \
-    "https://civitai-delivery-worker-prod.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/model/4138/lustify6MegafixFp16.0cgI.safetensors?X-Amz-Expires=86400&response-content-disposition=attachment%3B%20filename%3D%22lustifySDXLNSFW_oltONELASTTIME.safetensors%22&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=e01358d793ad6966166af8b3064953ad/20250320/us-east-1/s3/aws4_request&X-Amz-Date=20250320T100424Z&X-Amz-SignedHeaders=host&X-Amz-Signature=00e86dfddab1ea3f753c53212e1f7d9816bf08c34449161e803915a8d1a11db5" \
+    "https://civitai-delivery-worker-prod.5ac0637cfd0766c97916cefa3764fbdf.r2.cloudflarestorage.com/model/4138/lustifyOltInpainting.xWTO.safetensors?X-Amz-Expires=86400&response-content-disposition=attachment%3B%20filename%3D%22lustifySDXLNSFW_oltINPAINTING.safetensors%22&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=e01358d793ad6966166af8b3064953ad/20250405/us-east-1/s3/aws4_request&X-Amz-Date=20250405T173041Z&X-Amz-SignedHeaders=host&X-Amz-Signature=8cb1736d6a6755f1069e5daf6e09cce7b851dfa87fe6a6fc79c56b5e8c2547f9" \
     || echo "Warning: Lustify model download failed. You may need to manually download it and place it in /app/models/"
 
 # Create necessary directories with proper permissions
